@@ -1,0 +1,6 @@
+@cqrs_mediator_api_example_HostAddress = http://localhost:5102
+
+GET {{cqrs_mediator_api_example_HostAddress}}/todoapi/
+Accept: application/json
+
+###
