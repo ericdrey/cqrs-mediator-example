@@ -1,6 +1,8 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using cqrs_mediator_api_example.DTO;
-using cqrs_mediator_api_example.Services;
+using cqrs_mediator_api_example.Commands.TodoItems;
+using MediatR;
+using cqrs_mediator_api_example.Queries;
 
 namespace cqrs_mediator_api_example.Controllers
 {
@@ -8,46 +10,54 @@ namespace cqrs_mediator_api_example.Controllers
     [ApiController]
     public class TodoItemsController : ControllerBase
     {
-        private readonly TodoService _service;
+        private readonly IMediator _mediator;
 
-        public TodoItemsController(TodoService service)
+        public TodoItemsController(IMediator mediator)
         {
-            _service = service;
+            _mediator = mediator;
         }
 
         [HttpGet]
         public async Task<ActionResult<IEnumerable<TodoItemDTO>>> GetTodoItems()
         {
-            var result = await _service.GetAllAsync();
+            var result = await _mediator.Send(new GetAllTodoItemsQuery());
             return Ok(result);
         }
 
         [HttpGet("{id}")]
         public async Task<ActionResult<TodoItemDTO>> GetTodoItem(long id)
         {
-            var item = await _service.GetByIdAsync(id);
-            return item is null ? NotFound() : Ok(item);
+            var query = new GetTodoItemByIdQuery { Id = id };
+
+            var result = await _mediator.Send(query);
+            return result is null ? NotFound() : Ok(result);
         }
 
         [HttpPut("{id}")]
-        public async Task<IActionResult> PutTodoItem(long id, TodoItemDTO dto)
+        public async Task<ActionResult<TodoItemDTO>> PutTodoItem(long id, [FromBody] UpdateTodoItemCommand command)
         {
-            var updated = await _service.UpdateAsync(id, dto);
+            if (id != command.Id)
+            {
+                return BadRequest("ID mismatch");
+            }
+
+            var updated = await _mediator.Send(command);
             return updated is null ? NotFound() : NoContent();
         }
 
         [HttpPost]
-        public async Task<ActionResult<TodoItemDTO>> PostTodoItem(TodoItemDTO dto)
+        public async Task<ActionResult<TodoItemDTO>> PostTodoItem([FromBody] CreateTodoItemCommand command)
         {
-            var created = await _service.CreateAsync(dto);
-            return CreatedAtAction(nameof(GetTodoItem), new { id = created.Id }, created);
+            var result = await _mediator.Send(command);
+            return CreatedAtAction(nameof(GetTodoItem), new { id = result.Id }, result);
         }
 
         [HttpDelete("{id}")]
-        public async Task<IActionResult> DeleteTodoItem(long id)
+        public async Task<ActionResult<TodoItemDTO>> DeleteTodoItem(long id)
         {
-            var deleted = await _service.DeleteAsync(id);
-            return deleted ? NoContent() : NotFound();
+            var command = new DeleteTodoItemCommand { Id = id };
+            var deleted = await _mediator.Send(command);
+            return deleted is null ? NotFound() : Ok(deleted);
         }
     }
 }
